@@ -1,0 +1,14 @@
+[package]
+name = "validus-2025-trade-approval-system"
+version = "0.1.0"
+edition = "2024"
+description = "A trade approval system"
+
+[dependencies]
+anyhow = "1.0.100"
+chrono = "0.4.42"
+minicbor = { version = "2.1.1", features = ["derive", "std"] }
+rust_decimal = "1.39.0"
+sha256 = "1.6.0"
+sled = "0.34.7"
+thiserror = "2.0.17"
