@@ -3,6 +3,8 @@
 devenv.local.nix
 devenv.local.yaml
 
+db/*
+
 # direnv
 .direnv
 

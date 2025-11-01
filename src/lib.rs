@@ -1,9 +1,9 @@
 #![allow(unused_imports)]
 
 pub mod builder;
-pub mod types;
-pub mod utils;
-pub mod validator;
+pub mod error;
+pub mod trade_context;
+pub mod witness_set;
 
 #[cfg(test)]
 mod tests {
