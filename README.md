@@ -10,11 +10,11 @@ otherwise:
 https://rustup.rs/
 
 ```
-devenv build outputs.rust-lib
-```
-
-or
-
-```
 cargo build
+```
+
+run tests
+
+```
+cargo nextest run --lib --success-output=immediate
 ```

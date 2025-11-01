@@ -1,6 +1,9 @@
 #![allow(unused_imports)]
 
-mod builder;
+pub mod builder;
+pub mod types;
+pub mod utils;
+pub mod validator;
 
 #[cfg(test)]
 mod tests {
