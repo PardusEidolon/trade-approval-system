@@ -1,4 +1,5 @@
 use super::error::{TradeError, ValidationError};
+use bech32::Bech32;
 use chrono::{DateTime, TimeZone, Utc};
 use uuid7::{Uuid, uuid7};
 
@@ -26,9 +27,9 @@ pub enum Direction {
 pub struct TradeDetails {
     // No ID field, as the ID *is* the hash of this struct
     #[n(0)]
-    trading_entity: Option<EntityID>, // Wallet Address
+    trading_entity: Option<String>, // Wallet Address
     #[n(1)]
-    counter_party: Option<EntityID>, // Wallet Address
+    counter_party: Option<String>, // Wallet Address
     #[n(2)]
     direction: Option<Direction>,
     #[n(3)]
@@ -49,22 +50,8 @@ pub struct TradeDetails {
     strike: Option<u64>, // The agreed upon rate
 }
 
-// newtype wrapper over uuid because Uuid doesn't implement minicbor traits.
-#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub struct UserID(Uuid);
-
-#[derive(Debug, minicbor::Decode, minicbor::Encode, Eq, Ord, PartialEq, PartialOrd, Clone)]
-#[cbor(array)]
-pub struct EntityID(#[n(0)] UserID); // uuid7 type string
-
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct TimeStamp<T: TimeZone>(DateTime<T>);
-
-impl UserID {
-    pub fn new() -> Self {
-        Self(uuid7())
-    }
-}
 
 impl TimeStamp<Utc> {
     pub fn new() -> Self {
@@ -80,23 +67,30 @@ impl TimeStamp<Utc> {
     }
 }
 
-impl EntityID {
-    pub fn new() -> Self {
-        Self(UserID::new())
-    }
-}
-
 impl TradeDetails {
     /// Construct a new builder object, this becomes the basis for a draft
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn new_trade_entity(mut self, trade_entity: EntityID) -> Self {
-        self.trading_entity = Some(trade_entity);
+    pub fn new_trade_entity(mut self, trade_entity: &str) -> Self {
+        let hrp = bech32::Hrp::parse(trade_entity)
+            .expect("failed to parse trade_entity as an hrp for bech32 encoding.");
+
+        let entity_id = bech32::encode::<Bech32>(hrp, uuid7().as_bytes())
+            .expect("failed to serialise trading_entity to bech32 encoding.");
+
+        self.trading_entity = Some(entity_id);
         self
     }
-    pub fn new_counter_party(mut self, counter_party: EntityID) -> Self {
-        self.counter_party = Some(counter_party);
+    pub fn new_counter_party(mut self, counter_party: &str) -> Self {
+        let hrp = bech32::Hrp::parse(counter_party)
+            .expect("failed to parse trade_entity as an hrp for bech32 encoding.");
+
+        let entity_id = bech32::encode::<Bech32>(hrp, uuid7().as_bytes())
+            .expect("failed to serialise trading_entity to bech32 encoding.");
+
+        self.counter_party = Some(entity_id);
+
         self
     }
     pub fn set_direction(mut self, direction: Direction) -> Self {
@@ -153,7 +147,7 @@ impl TradeDetails {
         }
     }
     // Checks fields, and performs validation. returns a hash of the trade and its contetents serialised into cbor
-    pub fn build(&self) -> anyhow::Result<(String, Vec<u8>)> {
+    pub fn validate_and_finalise(&self) -> anyhow::Result<(String, Vec<u8>)> {
         if self.trading_entity.is_none() {
             return Err(TradeError::InvalidEntity(self.trading_entity.clone()).into());
         }
@@ -228,36 +222,11 @@ impl<'b, C> minicbor::Decode<'b, C> for TimeStamp<Utc> {
         Ok(TimeStamp(DateTime::from_timestamp_nanos(nsecs)))
     }
 }
-impl<C> minicbor::Encode<C> for UserID {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        self.0.as_bytes().encode(e, ctx)
-    }
-}
-impl<'b, C> minicbor::Decode<'b, C> for UserID {
-    fn decode(d: &mut minicbor::Decoder<'b>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let digest: [u8; 16] = d.decode()?;
-
-        Ok(UserID(Uuid::from(digest)))
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn userid_encoding() {
-        let original = UserID::new();
-
-        let encoding = minicbor::to_vec(original.clone()).unwrap();
-        let decode: UserID = minicbor::decode(&encoding).unwrap();
-
-        assert_eq!(original, decode);
-    }
     #[test]
     fn timestamp_encoding() {
         let original = TimeStamp::new();

@@ -3,24 +3,28 @@ use chrono::Utc;
 
 #[derive(Debug)]
 pub struct TradeContext {
-    pub trade_id: String,          // uuid7, use bech32
-    pub witness_set: Vec<Witness>, // trade context
+    /// uses a bech2_encoded uuid string. this string is also referenced in the witness
+    pub trade_id: String,
+    pub witness_set: Vec<Witness>,
 }
 
 #[derive(Debug, PartialEq, Eq, minicbor::Encode, minicbor::Decode, Clone)]
 pub struct Witness {
     #[n(0)]
-    pub trade_id: String, // a unique string that is a reference to [`Trade`]
+    pub trade_id: String,
+    /// a unique string that is a reference to [`Trade`]
     #[n(1)]
     pub user_addr: String,
     #[n(2)]
-    pub user_timestamp: TimeStamp<Utc>, // issued when the witness set is created
+    pub user_timestamp: TimeStamp<Utc>,
+    /// issued when the witness set is created
     #[n(3)]
     pub witness_type: WitnessType,
 }
 
 #[derive(Debug, PartialEq, Eq, minicbor::Encode, minicbor::Decode, Clone)]
 pub enum WitnessType {
+    /// submit is also the pending approval stage because validation occurs before not after otherwise we would have a malformed trade.
     #[n(0)]
     Submit {
         #[n(0)]
@@ -48,6 +52,13 @@ pub enum WitnessType {
     },
 }
 
+impl WitnessType {
+    fn approve_trade(mut self, approver_id: String) -> Self {
+        // TODO: match on Submit enum type then update the id
+        self
+    }
+}
+
 impl Witness {
     pub fn new(
         trade_id: String,
@@ -62,7 +73,8 @@ impl Witness {
             witness_type,
         }
     }
-    pub fn build(&self) -> anyhow::Result<(String, Vec<u8>)> {
+    /// encode to cbor then return the hassh and the encoded contents.
+    pub fn serialize_with_hash(&self) -> anyhow::Result<(String, Vec<u8>)> {
         let cbor = minicbor::to_vec(self)?;
         let hash = sha256::digest(&cbor);
 
@@ -104,8 +116,8 @@ mod tests {
 
         // we fist construct the draft doc. Then on build we submit
         let trade_details = TradeDetails::new()
-            .new_trade_entity(EntityID::new())
-            .new_counter_party(EntityID::new())
+            .new_trade_entity("entity1")
+            .new_counter_party("entity2")
             .set_direction(Direction::Buy)
             .set_notional_currency(Currency::EUR)
             .set_notional_amount(20_000)
@@ -116,7 +128,7 @@ mod tests {
             .set_delivery_date(date_c);
 
         // on build we go through a series of validation checks then on success we return a serialsed format of the trade and it's hash.
-        let draft_res = trade_details.build().unwrap();
+        let draft_res = trade_details.validate_and_finalise().unwrap();
 
         // we need to contruct a witnesstype in our case the action or (state transition) which keeps a copy of the hash for future lookups
         let witness_type = WitnessType::Submit {
@@ -136,7 +148,7 @@ mod tests {
         );
 
         // it's the same behvaiour as the builder for the trade details. return then encoded data and it's hash then insert into our map.
-        let encode_witnes = witness.build().unwrap();
+        let encode_witnes = witness.serialize_with_hash().unwrap();
         map.insert(encode_witnes.0, encode_witnes.1);
         // we also want to keep a copy in our trading context
         trade_context.insert_witness(witness);

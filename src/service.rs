@@ -1,2 +1,12 @@
-//! this is our service API layer which at a high-level wraps most of the actions from the trade and context and provides the actions (draft, submit, cancel, etc;) specified in the validus exercise doc.
-//!
+//! Serves as the primary entry-point for conducting trades
+
+use super::context::{self, TradeContext};
+
+pub struct TradeService {
+    instance: sled::Db,
+    context: TradeContext,
+}
+
+// TODO: implement the service entry-point tmrw
+
+impl TradeService {}

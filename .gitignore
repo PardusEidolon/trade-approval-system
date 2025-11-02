@@ -4,6 +4,8 @@ devenv.local.nix
 devenv.local.yaml
 
 db/*
+docs/*
+!docs/devlog.md
 
 # direnv
 .direnv
