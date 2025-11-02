@@ -1,7 +1,10 @@
 { pkgs, config, ... }:
 
 {
-  packages = with pkgs; [ cargo-nextest ];
+  packages = with pkgs; [
+    cargo-nextest
+    cargo-modules
+  ];
 
   languages.rust.enable = true;
 

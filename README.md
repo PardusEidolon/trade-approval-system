@@ -18,3 +18,5 @@ run tests
 ```
 cargo nextest run --lib --success-output=immediate
 ```
+
+![petri_net](./img/trade_formalisation_petri.png)

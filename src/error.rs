@@ -1,7 +1,13 @@
+use chrono::Utc;
+
+use super::trade::{EntityID, TimeStamp};
+
 #[derive(thiserror::Error, Debug)]
 pub enum ValidationError {
-    #[error("Trade Date <= Value Date <= Delivery Date failed")]
-    InvalidDates,
+    #[error(
+        "dates failed to meet the following condition: trade_date <= value_date <= delivery_date"
+    )]
+    DateValidation,
     #[error("Trade contained a cancel witness")]
     IsCanceled,
     #[error("Trade lacks an valid approved witness")]
@@ -12,4 +18,14 @@ pub enum ValidationError {
     MissingSubmit,
     #[error("Trade has already been executed and booked")]
     AlreadyExecuted,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum TradeError {
+    #[error("Invalid Date: `{0}` is `{1:?}`")]
+    InvalidDate(String, Option<TimeStamp<Utc>>),
+    #[error("Malformed Entity: `{0:?}`")]
+    InvalidEntity(Option<EntityID>),
+    #[error("Currency Ticker does not exist")]
+    InvalidCurrency,
 }

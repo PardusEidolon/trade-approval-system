@@ -1,4 +1,4 @@
-use super::builder::TimeStamp;
+use super::trade::TimeStamp;
 use chrono::Utc;
 
 #[derive(Debug, PartialEq, Eq)]

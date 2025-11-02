@@ -67,4 +67,9 @@ There are two components to this lib. One is the validator logic the other on e 
 - witnesses are checkd as part of the pending transactions to check what stage it's at. we can use this show the currency status to the user.
 
 ## Why CBOR?
-CBOR is a small enough binary encoding that should we wish to send trades across machines over a network effciently assuming the boundries are uniform, we can. Plus if trades are going to be determined by a hash then it requres that the sequence of bytes remains in tact if I were to use JSON some of the types plus whitespace and lack of number precision, with json being a native base64 encoding size is inflated adding extra bytes to compensate which could potentially change the hash data integrity is lost when using JSON; Espcially if were dealing with content addressable stores and hashes.
+Note: Canocialised CBOR is not enforced here. encoding is not strict and minicbor produces standard cbor by default.
+
+CBOR is a small enough binary encoding that is effcient and hash safe.
+
+## Why Sled?
+- Because I was looking around at different embedded databases storage implementations for my own storage layer side project in rust and sled stood out for having a native rust interface that wasn'st SQL. I could have used a HashMap for the purposes of my design but I wanted storage on disk not memory but still have low latency IO.
