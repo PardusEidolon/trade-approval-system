@@ -2,7 +2,7 @@ use super::error::{TradeError, ValidationError};
 use chrono::{DateTime, TimeZone, Utc};
 use uuid7::{Uuid, uuid7};
 
-#[derive(minicbor::Encode, minicbor::Decode, Debug)]
+#[derive(minicbor::Encode, minicbor::Decode, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Currency {
     #[n(0)]
     USD,
@@ -12,7 +12,7 @@ pub enum Currency {
     EUR,
 }
 
-#[derive(minicbor::Encode, minicbor::Decode, Debug)]
+#[derive(minicbor::Encode, minicbor::Decode, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Direction {
     #[n(0)]
     Buy,
@@ -22,7 +22,7 @@ pub enum Direction {
 
 // also used for constructing drafts
 // key is the hash of this struct encoded into cbor
-#[derive(minicbor::Encode, minicbor::Decode, Debug, Default)]
+#[derive(minicbor::Encode, minicbor::Decode, Debug, Default, Eq, PartialEq)]
 pub struct TradeDetails {
     // No ID field, as the ID *is* the hash of this struct
     #[n(0)]
@@ -50,10 +50,10 @@ pub struct TradeDetails {
 }
 
 // newtype wrapper over uuid because Uuid doesn't implement minicbor traits.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct UserID(Uuid);
 
-#[derive(Debug, minicbor::Decode, minicbor::Encode)]
+#[derive(Debug, minicbor::Decode, minicbor::Encode, Eq, Ord, PartialEq, PartialOrd, Clone)]
 #[cbor(array)]
 pub struct EntityID(#[n(0)] UserID); // uuid7 type string
 
@@ -155,10 +155,10 @@ impl TradeDetails {
     // Checks fields, and performs validation. returns a hash of the trade and its contetents serialised into cbor
     pub fn build(&self) -> anyhow::Result<(String, Vec<u8>)> {
         if self.trading_entity.is_none() {
-            return Err(TradeError::InvalidEntity(self.trading_entity).into());
+            return Err(TradeError::InvalidEntity(self.trading_entity.clone()).into());
         }
         if self.counter_party.is_none() {
-            return Err(TradeError::InvalidEntity(self.counter_party).into());
+            return Err(TradeError::InvalidEntity(self.counter_party.clone()).into());
         }
         if self.direction.is_none() {
             return Err(anyhow::Error::msg("Direction is not set"));
@@ -177,13 +177,19 @@ impl TradeDetails {
         }
 
         if self.trade_date.is_none() {
-            return Err(TradeError::InvalidDate("Trade Date".into(), self.trade_date).into());
+            return Err(
+                TradeError::InvalidDate("Trade Date".into(), self.trade_date.clone()).into(),
+            );
         }
         if self.value_date.is_none() {
-            return Err(TradeError::InvalidDate("value Date".into(), self.value_date).into());
+            return Err(
+                TradeError::InvalidDate("value Date".into(), self.value_date.clone()).into(),
+            );
         }
         if self.delivery_date.is_none() {
-            return Err(TradeError::InvalidDate("Delivery Date".into(), self.trade_date).into());
+            return Err(
+                TradeError::InvalidDate("Delivery Date".into(), self.trade_date.clone()).into(),
+            );
         }
         if !self.validate_dates() {
             return Err(ValidationError::DateValidation.into());

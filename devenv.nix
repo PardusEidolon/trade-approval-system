@@ -2,8 +2,6 @@
 
 {
   packages = with pkgs; [
-    cargo-nextest
-    cargo-modules
   ];
 
   languages.rust.enable = true;

@@ -89,11 +89,12 @@ mod tests {
     use super::*;
     use crate::{trade::*, utils};
 
-    // demonstating adhoc way of going through the workflow
+    // demonstating adhoc way of going through the transitions
     #[test]
-    fn build_trade() {
+    fn adhoc_trade_workflow() {
         let mut map = std::collections::HashMap::new();
-        // create a new trade context to keep everything in order,
+
+        // create a new trade context. this contains the trade name and witnesses.
         let trade_id = utils::uudi_to_bech32("trade_").unwrap();
         let mut trade_context = TradeContext::new(trade_id.clone());
 
@@ -101,8 +102,7 @@ mod tests {
         let date_b = TimeStamp::new();
         let date_c = TimeStamp::new();
 
-        // we fist construct the draft doc
-        // on build we submit
+        // we fist construct the draft doc. Then on build we submit
         let trade_details = TradeDetails::new()
             .new_trade_entity(EntityID::new())
             .new_counter_party(EntityID::new())
@@ -115,16 +115,19 @@ mod tests {
             .set_value_date(date_b)
             .set_delivery_date(date_c);
 
+        // on build we go through a series of validation checks then on success we return a serialsed format of the trade and it's hash.
         let draft_res = trade_details.build().unwrap();
 
+        // we need to contruct a witnesstype in our case the action or (state transition) which keeps a copy of the hash for future lookups
         let witness_type = WitnessType::Submit {
             details_hash: draft_res.0.clone(),
             requester_id: uuid7().to_string(),
             approver_id: uuid7().to_string(),
         };
-
+        // then insert the encoded trade with its hash into the map.
         map.insert(draft_res.0, draft_res.1);
 
+        // the witness type is then used to contain the nested witness type of our action then we store an id of the trade as this is important to being able to trace back.
         let witness = Witness::new(
             trade_id,
             utils::uudi_to_bech32("user_").unwrap(),
@@ -132,13 +135,13 @@ mod tests {
             witness_type,
         );
 
-        // then insert into the map.
+        // it's the same behvaiour as the builder for the trade details. return then encoded data and it's hash then insert into our map.
         let encode_witnes = witness.build().unwrap();
         map.insert(encode_witnes.0, encode_witnes.1);
-
-        // insert out constructed witness set
+        // we also want to keep a copy in our trading context
         trade_context.insert_witness(witness);
 
+        // next is to retrieve and perform equality checks
         match &trade_context.witness_set[0].witness_type {
             WitnessType::Submit {
                 details_hash,
@@ -147,10 +150,23 @@ mod tests {
             } => {
                 if let Some(details) = map.get(details_hash) {
                     let trade: TradeDetails = minicbor::decode(details).unwrap();
-                    println!("{:?}", trade);
+                    assert_eq!(trade_details, trade)
                 }
             }
             _ => {}
+        }
+        // assert equals on the witness from the one stored in our hashmap
+        match &trade_context.witness_set[0] {
+            wtns => {
+                // need to derive a hash
+                let encoded = minicbor::to_vec(wtns).unwrap();
+                let hash = sha256::digest(&encoded);
+
+                if let Some(stored_witness) = map.get(&hash) {
+                    let data: Witness = minicbor::decode(&stored_witness).unwrap();
+                    assert_eq!(*wtns, data)
+                }
+            }
         }
     }
 }
