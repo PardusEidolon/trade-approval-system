@@ -105,10 +105,11 @@
 
 #![allow(unused_imports)]
 
+pub mod context;
 pub mod error;
+pub mod service;
 pub mod trade;
-pub mod trade_context;
-pub mod witness_set;
+pub mod utils;
 
 #[cfg(test)]
 mod tests {

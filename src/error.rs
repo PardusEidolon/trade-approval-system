@@ -10,7 +10,7 @@ pub enum ValidationError {
     DateValidation,
     #[error("Trade contained a cancel witness")]
     IsCanceled,
-    #[error("Trade lacks an valid approved witness")]
+    #[error("Trade is missing an valid approved witness")]
     NoApproved,
     #[error("Update witness was found, but no subsequent 'approve'")]
     PendingApproval,

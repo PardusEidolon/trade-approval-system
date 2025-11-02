@@ -26,27 +26,27 @@ pub enum Direction {
 pub struct TradeDetails {
     // No ID field, as the ID *is* the hash of this struct
     #[n(0)]
-    pub trading_entity: Option<EntityID>, // Wallet Address
+    trading_entity: Option<EntityID>, // Wallet Address
     #[n(1)]
-    pub counter_party: Option<EntityID>, // Wallet Address
+    counter_party: Option<EntityID>, // Wallet Address
     #[n(2)]
-    pub direction: Option<Direction>,
+    direction: Option<Direction>,
     #[n(3)]
-    pub notional_currency: Option<Currency>,
+    notional_currency: Option<Currency>,
     #[n(4)]
-    pub notional_amount: u64,
+    notional_amount: u64,
     #[n(5)]
-    pub underlying_currency: Option<Currency>,
+    underlying_currency: Option<Currency>,
     #[n(6)]
-    pub underlying_amount: u64,
+    underlying_amount: u64,
     #[n(7)]
-    pub trade_date: Option<TimeStamp<Utc>>,
+    trade_date: Option<TimeStamp<Utc>>,
     #[n(8)]
-    pub value_date: Option<TimeStamp<Utc>>,
+    value_date: Option<TimeStamp<Utc>>,
     #[n(9)]
-    pub delivery_date: Option<TimeStamp<Utc>>,
+    delivery_date: Option<TimeStamp<Utc>>,
     #[n(10)]
-    pub strike: Option<u64>, // The agreed upon rate
+    strike: Option<u64>, // The agreed upon rate
 }
 
 // newtype wrapper over uuid because Uuid doesn't implement minicbor traits.
@@ -80,6 +80,12 @@ impl TimeStamp<Utc> {
     }
 }
 
+impl EntityID {
+    pub fn new() -> Self {
+        Self(UserID::new())
+    }
+}
+
 impl TradeDetails {
     /// Construct a new builder object, this becomes the basis for a draft
     pub fn new() -> Self {
@@ -102,7 +108,7 @@ impl TradeDetails {
         self
     }
     pub fn set_underlying_currency(mut self, symbol: Currency) -> Self {
-        self.notional_currency = Some(symbol);
+        self.underlying_currency = Some(symbol);
         self
     }
     pub fn set_notional_amount(mut self, amount: u64) -> Self {
@@ -146,8 +152,8 @@ impl TradeDetails {
             _ => false,
         }
     }
-    // only checks fields
-    pub fn build(self) -> anyhow::Result<Self> {
+    // Checks fields, and performs validation. returns a hash of the trade and its contetents serialised into cbor
+    pub fn build(&self) -> anyhow::Result<(String, Vec<u8>)> {
         if self.trading_entity.is_none() {
             return Err(TradeError::InvalidEntity(self.trading_entity).into());
         }
@@ -182,8 +188,11 @@ impl TradeDetails {
         if !self.validate_dates() {
             return Err(ValidationError::DateValidation.into());
         }
-        // temporary place holder
-        Ok(self)
+
+        let contents = minicbor::to_vec(self)?;
+        let hash = sha256::digest(&contents);
+
+        Ok((hash, contents))
     }
 }
 impl<T: TimeZone> From<DateTime<T>> for TimeStamp<T> {
