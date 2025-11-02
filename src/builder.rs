@@ -87,9 +87,12 @@ impl TimeStamp<Utc> {
     }
 }
 
-// impl TradeDetailsBuilder {
-//     pub fn new() -> Self {}
-// }
+impl TradeDetailsBuilder {
+    /// Construct a new builder object, this becomes the basis for a draft
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 impl<C> minicbor::Encode<C> for TimeStamp<Utc> {
     fn encode<W: minicbor::encode::Write>(
