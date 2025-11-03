@@ -1,34 +1,44 @@
 //! # Trade Approval System
 //!
-//! A type-safe, witness-based trade approval system for managing transactions through a structured validation and approval workflow.
+//! A functional, content-addressable trade approval system for managing financial transactions
+//! through an immutable witness chain, inspired by approachs to content addressable storage.
 //!
 //! ## Overview
 //!
-//! This library provides a streamlined and standardized approval process for financial
-//! instruments, particularly forward contracts. It enforces immutability, maintains
-//! complete audit trails through witness events, and ensures type-level guarantees
-//! about transaction states.
+//! This library provides a streamlined approval workflow for financial instruments, particularly
+//! forward contracts. Rather than mutating records in a traditional database, the system treats
+//! all data as immutable, content-addressable objects - similar to how Git stores commits and
+//! trees. Trade state is derived by replaying an append-only witness chain, ensuring complete
+//! auditability and eliminating state synchronization bugs.
 //!
-//! ### Two-Layer Architecture
+//! ### Functional Architecture
 //!
-//! The system is cleanly separated into two distinct layers:
+//! The system follows functional programming principles with clear separation of concerns:
 //!
-//! #### Layer 1: The Pure Logic Core
+//! #### Content-Addressable Storage Layer
 //!
-//! A stateless module containing all business and workflow logic with no knowledge of
-//! databases or I/O. This layer provides:
+//! All data objects (trade details, witnesses, contexts) are:
+//! - **Immutable**: Once created, they never change
+//! - **Content-addressed**: Identified by SHA256 hash of their CBOR-encoded contents
+//! - **Self-describing**: Contains all information needed for verification
+//! - **Persistent**: Stored in a key-value database sled
 //!
-//! - **`validate_for_execution`**: The holistic validator that accepts trade details and
-//!   their complete witness history to determine if a trade is valid for execution. This
-//!   provides "off-chain" validation capability without database access.
-//! - **`derive_state`**: The state derivation function that replays the witness list to
-//!   determine the current status of a trade for presentation purposes.
+//! #### State Derivation Layer
 //!
-//! #### Layer 2: The Service & API Layer
+//! Trade state is **never stored**, only **derived** by walking the witness chain:
+//! - `current_state()` replays witnesses to compute current state
+//! - `requires_approval()` determines if approval is needed
+//! - `get_expected_approver()` extracts who can approve
 //!
-//! The imperative "shell" that orchestrates I/O and state persistence through the
-//! [`service`] module. This layer acts as a **"Witness Collector"**, performing minimal
-//! logic and primarily creating and persisting witness objects for user actions.
+//! This is analogous to Git determining the current working tree by replaying commits.
+//!
+//! #### Service Layer
+//!
+//! The [`service`] module acts as a stateless coordinator that:
+//! - Loads immutable data from the content store
+//! - Appends new witnesses to the chain
+//! - Persists updated contexts back to storage
+//! - Enforces business rules via state derivation
 //!
 //! ### Core Principles
 //!
@@ -40,26 +50,42 @@
 //! - **Pure Validation Logic**: All business and workflow rules are concentrated in pure,
 //!   stateless functions that can be tested exhaustively without external dependencies.
 //!
-//! ## Trade Lifecycle
+//! ## Trade Lifecycle & State Machine
 //!
-//! Transactions progress through the following states:
+//! Trade states are derived by walking the witness chain backward. The state machine includes:
 //!
-//! 1. **Draft**: Trades are constructed using the builder pattern
-//! 2. **PendingApproval**: Submitted trades await approval
-//! 3. **NeedsReApproval**: Updated trades require re-approval
-//! 4. **Approved**: Approved trades ready to be sent to counterparty
-//! 5. **SentToCounterParty**: Trade sent and awaiting execution
-//! 6. **Executed**: Successfully executed and ready to book
-//! 7. **Cancelled**: Trade cancelled (can occur at any point before execution)
+//! 1. **Draft**: No witnesses yet, trade details being constructed
+//! 2. **PendingApproval**: Latest witness is `Submit` or `Update` - needs approval
+//! 3. **Approved**: Latest witness is `Approve` with no subsequent `Update`
+//! 4. **SentToExecute**: Trade sent to counterparty via `SendToExecute` witness
+//! 5. **Booked**: Final witness is `Book` - trade is recorded in ledger
+//! 6. **Cancelled**: `Cancel` witness terminates the trade lifecycle
 //!
-//! ### State Transitions
+//! ### Witness Types & State Transitions
 //!
-//! - **Submit**: Add trade to approval queue
-//! - **Update**: Modify trade details (returns to approval queue)
-//! - **Approve**: Move trade to execution stage
-//! - **Execute**: Send finalized trade to counterparty
-//! - **Book**: Record executed trade in ledger
-//! - **Cancel**: Abort trade before execution
+//! Each witness type represents an immutable action appended to the chain:
+//!
+//! - **`Submit`**: Creates initial trade request (Draft → PendingApproval)
+//!   - Contains: `details_hash`, `requester_id`, `approver_id`
+//!   - Includes hash reference to immutable `TradeDetails` object
+//!
+//! - **`Approve`**: Approves current trade state (PendingApproval → Approved)
+//!   - Verifies approver matches the one specified in `Submit`
+//!   - Only valid if `current_state()` returns `PendingApproval`
+//!
+//! - **`Update`**: Modifies trade details (Approved → PendingApproval)
+//!   - Contains: new `details_hash` pointing to updated details
+//!   - Invalidates previous `Approve` witness - requires re-approval
+//!   - Critical: This enables the re-approval workflow
+//!
+//! - **`SendToExecute`**: Sends to counterparty (Approved → SentToExecute)
+//!   - Only valid if trade is in `Approved` state
+//!
+//! - **`Book`**: Records in ledger (SentToExecute → Booked)
+//!   - Contains: `strike` price for final booking
+//!
+//! - **`Cancel`**: Terminates trade (Any → Cancelled)
+//!   - Can occur at any point before `Booked`
 //!
 //! ## Validation Rules
 //!
@@ -75,15 +101,35 @@
 //! - Prevention of double execution
 //! - Cancellation detection
 //!
-//! ## Content-Addressable Storage
+//! ## Content-Addressable Storage: The Git Model
 //!
-//! Trade details and witnesses use content-addressable storage where each object's ID is
-//! the hash of its contents. This guarantees:
+//! The system uses a content-addressable store where objects are identified by the hash of
+//! their contents.
+//!
+//! ### Storage Strategy
+//!
+//! ```text
+//! Database (sled key-value store):
+//! ┌─────────────────────────┬──────────────────────────────┐
+//! │ Key                     │ Value (CBOR-encoded)         │
+//! ├─────────────────────────┼──────────────────────────────┤
+//! │ "trade_abc123"          │ TradeContext(with witnesses) │
+//! │ sha256(trade_details_v1)│ TradeDetails v1              │
+//! │ sha256(trade_details_v2)│ TradeDetails v2(after Update)│
+//! └─────────────────────────┴──────────────────────────────┘
+//! ```
+//!
+//! - **TradeContext**: Stored by `trade_id` (unhashed) for easy lookup
+//! - **TradeDetails**: Stored by content hash for immutability and deduplication
+//! - **Witnesses**: Embedded in `TradeContext.witness_set` as an append-only list
+//!
+//! ### Benefits
 //!
 //! - **Immutability**: Changed content produces a different hash/ID
-//! - **Deduplication**: Identical content has identical IDs
-//! - **Data integrity**: Content cannot change without changing its ID
-//! - **Replay capability**: State can be reconstructed from witness history
+//! - **Integrity**: Content cannot change without changing its ID
+//! - **Deduplication**: Identical trade details share the same hash
+//! - **Replay capability**: State reconstructed by walking witness chain
+//! - **Auditability**: Complete history preserved, tamper-evident
 //!
 //! ## CBOR Encoding
 //!
@@ -97,85 +143,171 @@
 //!
 //! Note: Canonical CBOR is not enforced; standard CBOR encoding is used by default.
 //!
-//! ## Modules
-//!
-//! - [`context`]: Trade context and witness management for state derivation
-//! - [`error`]: Validation and operational error types
-//! - [`service`]: Service layer API for trade workflow operations
-//! - [`trade`]: Core trade details and witness types
-//! - [`utils`]: Utility functions for hashing and serialization
-//!
 //! ## Example Workflow
 //!
+//! ### Basic Approval Flow
+//!
+//! Note: IDs are made to be human readable for the purposes of this example
+//!
 //! ```rust,ignore
-//! use validus_trade_approval::service::TradeService;
-//! use validus_trade_approval::trade::{TradeDetails, Currency, Direction};
+//! use trade_approval::service::TradeService;
+//! use trade_approval::trade::{TradeDetails, Currency, Direction, TimeStamp};
+//! use std::sync::Arc;
 //!
-//! // Initialize the service
-//! let service = TradeService::new()?;
+//! // Initialize the service with sled database
+//! let db = Arc::new(sled::open("trade_db")?);
+//! let service = TradeService::new(db);
 //!
-//! // Create wallets for the participants
-//! let requester = service.create_wallet("Alice".to_string()).await?;
-//! let approver = service.create_wallet("Bob".to_string()).await?;
+//! // 1. Build trade details using the builder pattern
+//! let trade_details = TradeDetails::new()
+//!     .new_trade_entity("entity_abc")
+//!     .new_counter_party("counterparty_xyz")
+//!     .set_direction(Direction::Buy)
+//!     .set_notional_currency(Currency::USD)
+//!     .set_notional_amount(1_000_000)
+//!     .set_underlying_currency(Currency::EUR)
+//!     .set_underlying_amount(850_000)
+//!     .set_trade_date(TimeStamp::new())
+//!     .set_value_date(TimeStamp::new())
+//!     .set_delivery_date(TimeStamp::new());
 //!
-//! // Create trade details
-//! let details = TradeDetails {
-//!     trading_entity: requester.address.clone(),
-//!     counterparty: "CounterParty Corp".to_string(),
-//!     direction: Direction::Buy,
-//!     notional_currency: Currency::USD,
-//!     notional_amount: 1_000_000,
-//!     // ... other fields
-//! };
+//! // 2. Submit trade for approval (creates Submit witness → PendingApproval)
+//! let trade_ctx = service.submit_trade(
+//!     trade_details,
+//!     "requester_user123".to_string(),
+//!     "approver_user456".to_string(),
+//!     "user_addr_123".to_string(),
+//! )?;
 //!
-//! // Submit trade (creates Submit witness)
-//! let trade = service.submit_trade(
-//!     requester.address.clone(),
-//!     approver.address.clone(),
-//!     details
-//! ).await?;
+//! println!("Trade submitted: {}", trade_ctx.trade_id);
+//! println!("Current state: {:?}", trade_ctx.current_state()); // PendingApproval
 //!
-//! // Approve trade (creates Approve witness)
-//! service.approve_trade(approver.address.clone(), trade.id).await?;
+//! // 3. Approve the trade (creates Approve witness → Approved)
+//! let approved_ctx = service.approve_trade(
+//!     trade_ctx.trade_id.clone(),
+//!     "approver_user456".to_string(),
+//! )?;
 //!
-//! // Validate and execute (calls pure validator, creates SendToExecute witness)
-//! service.send_to_execute(requester.address, trade.id).await?;
+//! println!("Current state: {:?}", approved_ctx.current_state()); // Approved
+//!
+//! // 4. Execute the approved trade (creates SendToExecute witness → SentToExecute)
+//! let executed_ctx = service.execute_trade(
+//!     trade_ctx.trade_id.clone(),
+//!     "user_addr_123".to_string(),
+//! )?;
+//!
+//! // 5. Book the executed trade (creates Book witness → Booked)
+//! let booked_ctx = service.book_trade(
+//!     trade_ctx.trade_id.clone(),
+//!     "user_addr_123".to_string(),
+//!     85000, // strike price
+//! )?;
 //! ```
 //!
-//! ## Witnesses: The Event Chain
+//! ### Re-Approval After Update Flow
 //!
-//! Witnesses are immutable, content-addressable records of actions taken on a trade. Each
-//! witness contains:
+//! ```rust,ignore
+//! // After initial approval, trader realizes they need to change the amount
+//! let updated_details = TradeDetails::new()
+//!     .new_trade_entity("entity_abc")
+//!     .new_counter_party("counterparty_xyz")
+//!     .set_direction(Direction::Buy)
+//!     .set_notional_currency(Currency::USD)
+//!     .set_notional_amount(1_500_000) // CHANGED!
+//!     .set_underlying_currency(Currency::EUR)
+//!     .set_underlying_amount(1_275_000) // CHANGED!
+//!     .set_trade_date(TimeStamp::new())
+//!     .set_value_date(TimeStamp::new())
+//!     .set_delivery_date(TimeStamp::new());
 //!
-//! - **`trade_id`**: A reference to the parent `TradeContext` (the stable lifecycle tracker).
-//!   When a new trade is created, the `trade_id` is generated first, then all witnesses for
-//!   that trade reference this same ID.
-//! - **`user_address`**: The "signer" of the witness (serves as a signature)
-//! - **`timestamp_utc`**: When the action occurred
-//! - **`witness_type`**: The type of action (Submit, Approve, Update, Cancel, etc.)
+//! // Update the trade (creates Update witness → PendingApproval again)
+//! let updated_ctx = service.update_trade(
+//!     trade_ctx.trade_id.clone(),
+//!     updated_details,
+//!     "user_addr_123".to_string(),
+//! )?;
 //!
-//! ### Creating a New Trade
+//! // State is now PendingApproval because Update invalidated previous Approve
+//! println!("After update: {:?}", updated_ctx.current_state()); // PendingApproval
+//! println!("Requires approval: {}", updated_ctx.requires_approval()); // true
 //!
-//! 1. Generate a stable `trade_id` (uuid7-based, bech32-encoded)
-//! 2. Create a `TradeContext` with this `trade_id`
-//! 3. Create the first `Submit` witness that references this `trade_id` and contains the
-//!    hash of the `TradeDetails`
-//! 4. All subsequent witnesses (Approve, Update, Cancel, etc.) reference the same `trade_id`
+//! // Need to approve again before execution
+//! let reapproved_ctx = service.approve_trade(
+//!     trade_ctx.trade_id.clone(),
+//!     "approver_user456".to_string(),
+//! )?;
 //!
-//! The complete ordered list of witnesses for a trade constitutes its full history. By
-//! replaying this history, the system can derive the current state and validate whether
-//! the trade is ready for execution.
+//! // Now approved again and ready for execution
+//! println!("Re-approved: {:?}", reapproved_ctx.current_state()); // Approved
+//! ```
 //!
-//! ## Design Goals
+//! ### Understanding the Witness Chain
 //!
-//! - **Simplicity & Testability**: Pure functional core enables exhaustive testing without
-//!   external dependencies, critical for meeting tight development timelines
-//! - **Type Safety**: Strong typing ensures methods are only available in valid states
-//! - **Complete Audit Trail**: Immutable witness chain provides full event history
-//! - **Offline Validation**: Validate correctness before network/database interaction
-//! - **Content Addressable**: Trade details identified by hash, guaranteeing immutability
-//! - **Replay Capability**: State can be reconstructed from event history at any time
-//! - **Separation of Concerns**: Pure logic core isolated from imperative I/O shell
+//! After the re-approval flow above, the witness chain looks like:
+//!
+//! ```text
+//! [Submit] → [Approve] → [Update] → [Approve]
+//!                           ↑
+//!                     This Update invalidates
+//!                     the previous Approve,
+//!                     requiring re-approval
+//!
+//! Walking backward from the end:
+//! - Last witness is Approve → state is Approved
+//! - If last witness was Update → state would be PendingApproval
+//! - The Update witness contains a new details_hash pointing to v2 of trade details
+//! ```
+//!
+//! ## Witnesses: The Immutable Event Chain
+//!
+//! Witnesses are the atomic units of change in the system - immutable records of actions
+//! appended to a trade's history, analogous to commits:
+//!
+//! ### Witness Structure
+//!
+//! Each witness contains:
+//! - **`trade_id`**: Reference to the parent `TradeContext` (Acts as our primary ref)
+//! - **`user_id`**: The actor who created this witness
+//! - **`user_timestamp`**: When the action occurred
+//! - **`witness_type`**: The action performed with its data payload
+//!
+//! ### Creating a Trade: The Functional Flow
+//!
+//! 1. **Generate immutable trade_id** (uuid7-based, bech32-encoded)
+//! 2. **Create TradeContext** with empty witness_set
+//! 3. **Validate & hash TradeDetails** → store in DB
+//! 4. **Create Submit witness** with details_hash → append to witness_set
+//! 5. **Persist TradeContext** to DB using trade_id as key
+//!
+//! All subsequent actions follow the same pattern: load context, append witness, persist.
+//! The witness chain is append-only - never modified, only extended.
+//!
+//! ## Design Goals & Philosophy
+//!
+//! This system embraces functional programming principles and content-addressable storage:
+//!
+//! - **Immutability First**: No data is ever mutated. Changes create new versions with new hashes.
+//!   This eliminates entire classes of bugs related to concurrent modifications and state races.
+//!
+//! - **Derived State**: Trade state is computed from the witness chain, not stored. This means
+//!   the state machine logic is centralized in `current_state()` rather than scattered across
+//!   mutations.
+//!
+//! - **Append-Only History**: Witnesses are only added, never changed or deleted.
+//!   This provides complete auditability and makes the system naturally event-sourced.
+//!
+//! - **Content Addressing**: Objects are identified by their content hash. This makes them
+//!   self-validating, naturally deduplicated, and tamper-evident.
+//!
+//! - **Stateless Service**: The `TradeService` has no state of its own - it's purely a
+//!   coordinator that loads data, applies business rules, appends witnesses, and persists.
+//!   This makes it trivially horizontally scalable.
+//!
+//! - **Type Safety**: Rust's type system prevents invalid states at compile time. The witness
+//!   types are distinct enum variants, making it impossible to confuse a Submit with an Approve.
+//!
+//! - **Testability**: State derivation logic is pure functions with no I/O dependencies,
+//!   enabling comprehensive unit testing without mocking databases or networks.
 
 #![allow(unused_imports)]
 

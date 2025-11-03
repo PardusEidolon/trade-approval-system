@@ -1,3 +1,4 @@
+//! Core trade details and witness types
 use super::error::{TradeError, ValidationError};
 use bech32::Bech32;
 use chrono::{DateTime, TimeZone, Utc};

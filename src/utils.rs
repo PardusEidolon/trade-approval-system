@@ -1,3 +1,5 @@
+//! Utility functions for hashing and serialization
+
 use bech32::Bech32m;
 use uuid7::uuid7;
 

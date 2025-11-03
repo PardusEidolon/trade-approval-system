@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+//! Trade context and witness management for state derivation
 
 use super::trade::TimeStamp;
 use super::utils::new_uuid_to_bech32;
@@ -28,7 +29,7 @@ pub struct TradeContext {
 pub struct Witness {
     #[n(0)]
     pub trade_id: String,
-    /// a unique string that is a reference to [`Trade`]
+    /// a unique string that is a reference to the trade
     #[n(1)]
     pub user_id: String,
     #[n(2)]

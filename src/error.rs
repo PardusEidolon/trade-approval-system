@@ -1,3 +1,4 @@
+//! Validation and operational error types
 use chrono::Utc;
 
 use super::trade::TimeStamp;
