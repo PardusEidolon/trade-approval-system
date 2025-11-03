@@ -167,7 +167,12 @@ impl TradeContext {
         for witness in self.witness_set.iter().rev() {
             match &witness.witness_type {
                 WitnessType::Submit { .. } => {
-                    return TradeState::PendingApproval;
+                    // if weve already seen approved after submit then return approved
+                    if approved {
+                        return TradeState::Approved;
+                    } else {
+                        return TradeState::PendingApproval;
+                    }
                 }
                 WitnessType::Update { .. } => {
                     // Update invalidates previous approval

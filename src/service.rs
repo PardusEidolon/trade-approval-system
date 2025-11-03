@@ -26,7 +26,7 @@ impl TradeService {
         trade_details: TradeDetails,
         requester_id: String,
         approver_id: String,
-        user_addr: String,
+        user_id: String,
     ) -> anyhow::Result<TradeContext> {
         // Validate and serialize trade details
         let (details_hash, details_cbor) = trade_details.validate_and_finalise()?;
@@ -37,7 +37,7 @@ impl TradeService {
         // Create Submit witness
         let witness = Witness::new(
             trade_context.trade_id.clone(),
-            user_addr,
+            user_id,
             TimeStamp::new(),
             WitnessType::Submit {
                 details_hash: details_hash.clone(),
@@ -97,6 +97,7 @@ impl TradeService {
             TimeStamp::new(),
             WitnessType::Approve,
         );
+
         trade_context.insert_witness(witness);
 
         // Save back to DB

@@ -1,4 +1,5 @@
 # Devenv
+.claude
 .devenv*
 devenv.local.nix
 devenv.local.yaml
@@ -6,6 +7,8 @@ devenv.local.yaml
 db/*
 docs/*
 !docs/devlog.md
+!docs/ARD.md
+!docs/LLM-use.md
 
 # direnv
 .direnv

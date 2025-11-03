@@ -18,6 +18,16 @@ This system manages the lifecycle of forward contract trades through an approval
 ### Prerequisites
 
 **Using Nix + devenv (recommended):**
+
+Nix provides deterministic builds and reproducible environments. It ensures:
+- **Reproducibility** - everyone on the team uses identical tool versions
+- **Isolation** - project dependencies don't conflict with your system
+- **Declarative setup** - environment defined in code, not manual installation steps
+- **Cross-platform consistency** - same environment on macOS, Linux, and CI/CD
+
+Without Nix, environments remain heterogeneous, leading to "works on my machine" issues.
+
+Install these tools:
 - [Nix installer](https://determinate.systems/nix-installer/)
 - [devenv](https://devenv.sh/getting-started/)
 - [direnv](https://direnv.net/)
@@ -34,9 +44,6 @@ cargo build
 # Run tests
 cargo test
 
-# With nextest (if installed)
-cargo nextest run --lib --success-output=immediate
-
 # Generate documentation
 cargo doc --open
 ```
@@ -47,13 +54,27 @@ The trade lifecycle is modeled as a Petri net, shown below:
 
 ![Trade State Machine](./img/trade_formalisation_petri.png)
 
-**Reading the Petri Net:**
-- **Circles** = States (e.g., Draft, PendingApproval, Approved)
-- **Rectangles** = Transitions/Actions (e.g., Submit, Approve, Update)
-- **Arrows** = Flow direction
-- **Tokens (dots)** = Current state position
+### How to Read a Petri Net
 
-Each transition creates an immutable witness appended to the chain. See the [full documentation](#documentation) for detailed explanation of the state machine and witness types.
+A Petri net is a mathematical model for representing concurrent systems and workflows:
+
+**Basic Elements:**
+- **Circles (Places)** = States or conditions (e.g., `Draft`, `PendingApproval`, `Approved`)
+- **Rectangles (Transitions)** = Actions or events (e.g., `Submit`, `Approve`, `Update`)
+- **Arrows (Arcs)** = Flow connections showing which states enable which actions
+- **Tokens (dots inside circles)** = Current position(s) in the workflow
+
+**Reading the Flow:**
+1. **Enabled Transitions** - A transition can fire when all its input places contain tokens
+2. **Firing** - When a transition fires, it consumes tokens from input places and produces tokens in output places
+3. **No-Operation (thin rectangles)** = Synchronization points that consume tokens from parallel branches
+
+**In this system:**
+- Each transition creates an immutable witness appended to the chain
+- Tokens represent the current state derived from the witness history
+- The Petri net formally guarantees valid state transitions
+
+See the [full documentation](#documentation) for detailed explanation of the state machine and witness types.
 
 ## Usage Example
 
@@ -114,7 +135,3 @@ The documentation includes:
 - Full workflow examples (basic approval, re-approval, cancellation)
 - Content-addressable storage strategy
 - API reference for all modules
-
-## License
-
-MIT
