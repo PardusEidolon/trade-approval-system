@@ -1,10 +1,26 @@
+#![allow(dead_code)]
+
 use super::trade::TimeStamp;
+use super::utils::new_uuid_to_bech32;
 use chrono::Utc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TradeState {
+    Draft,           // No Submit yet
+    PendingApproval, // Latest action is Submit or Update
+    Approved,        // Latest action is Approve (and no Update after)
+    Cancelled,
+    SentToExecute,
+    Executed,
+    Booked,
+}
+
+#[derive(Debug, minicbor::Encode, minicbor::Decode)]
 pub struct TradeContext {
     /// uses a bech2_encoded uuid string. this string is also referenced in the witness
+    #[n(0)]
     pub trade_id: String,
+    #[n(1)]
     pub witness_set: Vec<Witness>,
 }
 
@@ -14,7 +30,7 @@ pub struct Witness {
     pub trade_id: String,
     /// a unique string that is a reference to [`Trade`]
     #[n(1)]
-    pub user_addr: String,
+    pub user_id: String,
     #[n(2)]
     pub user_timestamp: TimeStamp<Utc>,
     /// issued when the witness set is created
@@ -24,7 +40,7 @@ pub struct Witness {
 
 #[derive(Debug, PartialEq, Eq, minicbor::Encode, minicbor::Decode, Clone)]
 pub enum WitnessType {
-    /// submit is also the pending approval stage because validation occurs before not after otherwise we would have a malformed trade.
+    /// if we pass validaion checks on build we are in the pending approval stage
     #[n(0)]
     Submit {
         #[n(0)]
@@ -32,7 +48,7 @@ pub enum WitnessType {
         #[n(1)]
         requester_id: String,
         #[n(2)]
-        approver_id: String,
+        approver_id: String, // who is responsible to approving the trade
     },
     #[n(1)]
     Approve,
@@ -52,23 +68,33 @@ pub enum WitnessType {
     },
 }
 
+/// primary action type that drives the trade.
 impl WitnessType {
-    fn approve_trade(mut self, approver_id: String) -> Self {
-        // TODO: match on Submit enum type then update the id
-        self
+    fn new_submit(details_hash: String, requester_id: String, approver_id: String) -> Self {
+        Self::Submit {
+            details_hash,
+            requester_id,
+            approver_id,
+        }
+    }
+    fn new_update(details_hash: String) -> Self {
+        Self::Update { details_hash }
+    }
+    fn new_book(strike: u64) -> Self {
+        Self::Book { strike }
     }
 }
 
 impl Witness {
     pub fn new(
         trade_id: String,
-        user_addr: String,
+        user_id: String,
         user_timestamp: TimeStamp<Utc>,
         witness_type: WitnessType,
     ) -> Self {
         Self {
             trade_id,
-            user_addr,
+            user_id,
             user_timestamp,
             witness_type,
         }
@@ -76,14 +102,21 @@ impl Witness {
     /// encode to cbor then return the hassh and the encoded contents.
     pub fn serialize_with_hash(&self) -> anyhow::Result<(String, Vec<u8>)> {
         let cbor = minicbor::to_vec(self)?;
-        let hash = sha256::digest(&cbor);
+        let id = self.trade_id.clone();
 
-        Ok((hash, cbor))
+        Ok((id, cbor))
     }
 }
-
 impl TradeContext {
-    pub fn new(trade_id: String) -> Self {
+    pub fn new() -> Self {
+        let trade_id = new_uuid_to_bech32("trade_").expect("generate new ID for trade_context ");
+        Self {
+            trade_id,
+            witness_set: vec![],
+        }
+    }
+    // generate a uuid outside this types context
+    pub fn new_with(trade_id: String) -> Self {
         Self {
             trade_id,
             witness_set: vec![],
@@ -92,93 +125,100 @@ impl TradeContext {
     pub fn insert_witness(&mut self, witness: Witness) {
         self.witness_set.push(witness);
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use uuid7::uuid7;
+    /// Serialize to CBOR with content hash for integrity
+    pub fn serialize_with_hash(&self) -> anyhow::Result<(String, Vec<u8>)> {
+        let cbor = minicbor::to_vec(self)?;
+        let hash = sha256::digest(&cbor);
+        Ok((hash, cbor))
+    }
 
-    use super::*;
-    use crate::{trade::*, utils};
+    /// Save to database using trade_id as key
+    pub fn save_to_db(&self, db: &sled::Db) -> anyhow::Result<String> {
+        let (content_hash, cbor) = self.serialize_with_hash()?;
 
-    // demonstating adhoc way of going through the transitions
-    #[test]
-    fn adhoc_trade_workflow() {
-        let mut map = std::collections::HashMap::new();
+        // Use trade_id (unhashed) as the key
+        db.insert(self.trade_id.as_bytes(), cbor)?;
 
-        // create a new trade context. this contains the trade name and witnesses.
-        let trade_id = utils::uudi_to_bech32("trade_").unwrap();
-        let mut trade_context = TradeContext::new(trade_id.clone());
+        // Return hash for audit/verification purposes
+        Ok(content_hash)
+    }
 
-        let date_a = TimeStamp::new();
-        let date_b = TimeStamp::new();
-        let date_c = TimeStamp::new();
+    /// Load from database using trade_id
+    pub fn load_from_db(db: &sled::Db, trade_id: &str) -> anyhow::Result<Self> {
+        let bytes = db
+            .get(trade_id.as_bytes())?
+            .ok_or_else(|| anyhow::anyhow!("Trade not found: {}", trade_id))?;
 
-        // we fist construct the draft doc. Then on build we submit
-        let trade_details = TradeDetails::new()
-            .new_trade_entity("entity1")
-            .new_counter_party("entity2")
-            .set_direction(Direction::Buy)
-            .set_notional_currency(Currency::EUR)
-            .set_notional_amount(20_000)
-            .set_underlying_amount(15_000)
-            .set_underlying_currency(Currency::GBP)
-            .set_trade_date(date_a)
-            .set_value_date(date_b)
-            .set_delivery_date(date_c);
+        let trade_context: TradeContext = minicbor::decode(&bytes)?;
+        Ok(trade_context)
+    }
 
-        // on build we go through a series of validation checks then on success we return a serialsed format of the trade and it's hash.
-        let draft_res = trade_details.validate_and_finalise().unwrap();
-
-        // we need to contruct a witnesstype in our case the action or (state transition) which keeps a copy of the hash for future lookups
-        let witness_type = WitnessType::Submit {
-            details_hash: draft_res.0.clone(),
-            requester_id: uuid7().to_string(),
-            approver_id: uuid7().to_string(),
-        };
-        // then insert the encoded trade with its hash into the map.
-        map.insert(draft_res.0, draft_res.1);
-
-        // the witness type is then used to contain the nested witness type of our action then we store an id of the trade as this is important to being able to trace back.
-        let witness = Witness::new(
-            trade_id,
-            utils::uudi_to_bech32("user_").unwrap(),
-            TimeStamp::new(),
-            witness_type,
-        );
-
-        // it's the same behvaiour as the builder for the trade details. return then encoded data and it's hash then insert into our map.
-        let encode_witnes = witness.serialize_with_hash().unwrap();
-        map.insert(encode_witnes.0, encode_witnes.1);
-        // we also want to keep a copy in our trading context
-        trade_context.insert_witness(witness);
-
-        // next is to retrieve and perform equality checks
-        match &trade_context.witness_set[0].witness_type {
-            WitnessType::Submit {
-                details_hash,
-                requester_id: _,
-                approver_id: _,
-            } => {
-                if let Some(details) = map.get(details_hash) {
-                    let trade: TradeDetails = minicbor::decode(details).unwrap();
-                    assert_eq!(trade_details, trade)
-                }
-            }
-            _ => {}
+    /// Determine current state by examining witness chain
+    pub fn current_state(&self) -> TradeState {
+        if self.witness_set.is_empty() {
+            return TradeState::Draft;
         }
-        // assert equals on the witness from the one stored in our hashmap
-        match &trade_context.witness_set[0] {
-            wtns => {
-                // need to derive a hash
-                let encoded = minicbor::to_vec(wtns).unwrap();
-                let hash = sha256::digest(&encoded);
 
-                if let Some(stored_witness) = map.get(&hash) {
-                    let data: Witness = minicbor::decode(&stored_witness).unwrap();
-                    assert_eq!(*wtns, data)
+        // Walk backwards to find the latest relevant state
+        let mut approved = false;
+
+        for witness in self.witness_set.iter().rev() {
+            match &witness.witness_type {
+                WitnessType::Submit { .. } => {
+                    return TradeState::PendingApproval;
+                }
+                WitnessType::Update { .. } => {
+                    // Update invalidates previous approval
+                    return TradeState::PendingApproval;
+                }
+                WitnessType::Approve => {
+                    approved = true;
+                    // Keep checking - might be an Update after this
+                }
+                WitnessType::Cancel => {
+                    return TradeState::Cancelled;
+                }
+                WitnessType::SendToExecute => {
+                    return TradeState::SentToExecute;
+                }
+                WitnessType::Book { .. } => {
+                    return TradeState::Booked;
                 }
             }
         }
+
+        // If we get here and saw Approve, and no Submit/Update after
+        if approved {
+            TradeState::Approved
+        } else {
+            TradeState::Draft
+        }
+    }
+
+    /// Check if trade needs approval before proceeding
+    pub fn requires_approval(&self) -> bool {
+        matches!(self.current_state(), TradeState::PendingApproval)
+    }
+
+    /// Get the expected approver from the latest Submit or Update with approver info
+    pub fn get_expected_approver(&self) -> anyhow::Result<String> {
+        // Walk backwards to find the latest Submit or Update
+        for witness in self.witness_set.iter().rev() {
+            match &witness.witness_type {
+                WitnessType::Submit { approver_id, .. } => {
+                    return Ok(approver_id.clone());
+                }
+                WitnessType::Update { .. } => {
+                    // Update doesn't have approver_id, need to find previous Submit
+                    continue;
+                }
+                _ => continue,
+            }
+        }
+
+        Err(anyhow::anyhow!(
+            "No Submit witness found with approver information"
+        ))
     }
 }

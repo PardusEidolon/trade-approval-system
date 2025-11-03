@@ -1,6 +1,6 @@
 use chrono::Utc;
 
-use super::trade::{EntityID, TimeStamp};
+use super::trade::TimeStamp;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ValidationError {
@@ -25,7 +25,7 @@ pub enum TradeError {
     #[error("Invalid Date: `{0}` is `{1:?}`")]
     InvalidDate(String, Option<TimeStamp<Utc>>),
     #[error("Malformed Entity: `{0:?}`")]
-    InvalidEntity(Option<EntityID>),
+    InvalidEntity(Option<String>),
     #[error("Currency Ticker does not exist")]
     InvalidCurrency,
 }

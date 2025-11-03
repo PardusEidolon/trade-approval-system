@@ -67,9 +67,25 @@ There are two components to this lib. One is the validator logic the other on e 
 - witnesses are checkd as part of the pending transactions to check what stage it's at. we can use this show the currency status to the user.
 
 ## Why CBOR?
-Note: Canocialised CBOR is not enforced here. encoding is not strict and minicbor produces standard cbor by default.
+Note: Canocialised CBOR is not enforced here, so hashes could return malformed. encoding is not strict and minicbor produces standard cbor by default.
 
 CBOR is a small enough binary encoding that is effcient and hash safe.
 
 ## Why Sled?
-- Because I was looking around at different embedded databases storage implementations for my own storage layer side project in rust and sled stood out for having a native rust interface that wasn'st SQL. I could have used a HashMap for the purposes of my design but I wanted storage on disk not memory but still have low latency IO.
+- Because I was looking around at different embedded databases storage implementations for my own storage layer side project in rust and sled stood out for having a native rust interface that wasn'st SQL. I could have used a HashMap for the purposes of my design but I wanted storage on disk not memory but still have low latency IO. plus I wanted to try it out.
+
+## A Note on ID's and witnesses
+Initially you want public/private keys to perform signatures on the serialised trades before we insert and append them into our trade context however to get the idea across I'll just bech32 encoded uuid strings. so when we approve a trade for example we can treat this as a kind of signature
+
+### Why bech32?
+because it uses a 6 byte checksum which brings down the cost of malformed id's we can plus ids are copied across witness sets. if witnesses are going to refer the current trade context we need to make sure were not putting different id's. so if trade_ids are going to be unique it would be nice to have early error detection when entering past trades ids. but if in the case we use change a byte in a uuid,  then it's a completely different trade.
+
+## ID Scheme
+
+```
+<human_readable_part> : <uuid_bech32_encoded_string>
+
+// current choices
+'trade_': trade identifier seperated by an '_'
+'user_': user identifier seperated by an '_'
+```
