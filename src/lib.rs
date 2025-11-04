@@ -7,8 +7,7 @@
 //!
 //! ## Overview
 //!
-//! This library provides a streamlined approval workflow for financial instruments, particularly
-//! forward contracts. Rather than mutating records in a traditional database, the system treats
+//! This library provides a streamlined approval workflow for financial instruments. Rather than mutating records in a traditional database, the system treats
 //! all data as immutable, content-addressable objects - similar to how Git stores commits and
 //! trees. Trade state is derived by replaying an append-only witness chain, ensuring complete
 //! auditability and eliminating state synchronisation bugs.

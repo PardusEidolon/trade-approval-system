@@ -154,6 +154,80 @@ impl TradeContext {
         let trade_context: TradeContext = minicbor::decode(&bytes)?;
         Ok(trade_context)
     }
+    /// Display the witness history in a human-readable timeline format
+    pub fn view_history(&self) {
+        println!("\nTrade Timeline: {}\n", self.trade_id);
+
+        if self.witness_set.is_empty() {
+            println!("  No witnesses recorded yet (Draft state)");
+            return;
+        }
+
+        for (idx, wit) in self.witness_set.iter().enumerate() {
+            let date = wit.user_timestamp.to_datetime_utc();
+            let timestamp = date.format("%Y-%m-%d %H:%M:%S UTC");
+
+            let (action, details, next_state) = match &wit.witness_type {
+                WitnessType::Submit {
+                    details_hash: _,
+                    requester_id,
+                    approver_id,
+                } => {
+                    let detail_str = format!(
+                        "requester: {}, approver: {}",
+                        Self::truncate_id(requester_id, 12),
+                        Self::truncate_id(approver_id, 12)
+                    );
+                    ("Submit", detail_str, "PendingApproval")
+                }
+                WitnessType::Approve => ("Approve", String::new(), "Approved"),
+                WitnessType::Update { details_hash } => {
+                    let detail_str = format!("new hash: {}...", &details_hash[..8]);
+                    ("Update", detail_str, "PendingApproval")
+                }
+                WitnessType::Cancel => ("Cancel", String::new(), "Cancelled"),
+                WitnessType::SendToExecute => ("SendToExecute", String::new(), "SentToExecute"),
+                WitnessType::Book { strike } => {
+                    let detail_str = format!("strike: {}", strike);
+                    ("Book", detail_str, "Booked")
+                }
+            };
+
+            let user_display = Self::truncate_id(&wit.user_id, 15);
+
+            if details.is_empty() {
+                println!(
+                    "{:>2}. {} │ {:<17} │ {} → {}",
+                    idx + 1,
+                    timestamp,
+                    action,
+                    user_display,
+                    next_state
+                );
+            } else {
+                println!(
+                    "{:>2}. {} │ {:<17} │ {} → {}",
+                    idx + 1,
+                    timestamp,
+                    action,
+                    user_display,
+                    next_state
+                );
+                println!("     {}", details);
+            }
+        }
+
+        println!("\nCurrent State: {:?}\n", self.current_state());
+    }
+
+    /// Truncate long IDs for display purposes
+    fn truncate_id(id: &str, max_len: usize) -> String {
+        if id.len() <= max_len {
+            id.to_string()
+        } else {
+            format!("{}...", &id[..max_len])
+        }
+    }
 
     /// Determine current state by examining witness chain
     pub fn current_state(&self) -> TradeState {

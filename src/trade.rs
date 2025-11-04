@@ -2,7 +2,7 @@
 use super::error::{TradeError, ValidationError};
 use bech32::Bech32;
 use chrono::{DateTime, TimeZone, Utc};
-use uuid7::{Uuid, uuid7};
+use uuid7::uuid7;
 
 #[derive(minicbor::Encode, minicbor::Decode, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Currency {

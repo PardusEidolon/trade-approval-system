@@ -1,8 +1,7 @@
 //! Service layer API for trade workflow operations
 use super::context::{TradeContext, TradeState, Witness, WitnessType};
 use super::trade::{TimeStamp, TradeDetails};
-use chrono::Utc;
-use sled::{Batch, Db};
+use sled::Batch;
 use std::sync::Arc;
 
 pub struct TradeService {
