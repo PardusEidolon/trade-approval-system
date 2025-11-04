@@ -42,7 +42,7 @@ A shell extension that automatically loads and unloads environments based on you
 
 1. Install the Determinate Nix Installer:
    ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --determinate
    ```
 
 2. Configure binary caches (improves build speeds):
@@ -74,7 +74,7 @@ A shell extension that automatically loads and unloads environments based on you
 
 5. Navigate to the project and enter the environment:
    ```bash
-   cd validus-2025-trade-approval-system
+   cd trade-approval-system
 
    # With direnv (automatic)
    direnv allow
@@ -109,10 +109,7 @@ Once your environment is set up:
 cargo build
 
 # Run all tests
-cargo test`
-
-# Run tests with output
-cargo test -- --nocapture
+cargo test
 
 # Generate and open documentation
 cargo doc --open
@@ -192,7 +189,7 @@ println!("Current state: {:?}", approved_ctx.current_state()); // Approved
 
 ## Documentation
 
-**For comprehensive documentation, architecture details, and complete examples, please refer to the Rust documentation:**
+**For more details documentation, descions and complete examples, please refer to the Rust documentation:**
 
 ```bash
 cargo doc --open
