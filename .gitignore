@@ -7,7 +7,7 @@ devenv.local.yaml
 db/*
 docs/*
 !docs/devlog.md
-!docs/ARD.md
+!docs/ADR.md
 !docs/LLM-use.md
 
 # direnv

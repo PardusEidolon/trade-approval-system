@@ -1,8 +1,6 @@
 # Architecture Decision Records (ADR)
 
-## ADR-001: Content-Addressable Storage Model
-
-**Status:** Accepted
+## Content-Addressable Storage Model
 
 **Context:**
 Trade approval systems traditionally use mutable database records where state is updated in-place. This approach leads to several challenges:
@@ -30,9 +28,7 @@ Adopt a content-addressable storage model inspired by Git and UTXO systems, wher
 
 ---
 
-## ADR-002: Derived State via Witness Chain
-
-**Status:** Accepted
+## Derived State via Witness Chain
 
 **Context:**
 Most workflow systems store the current state explicitly in database fields (e.g., `status = 'APPROVED'`). This creates the dual responsibility of maintaining both the event history and the current state, leading to potential inconsistencies.
@@ -53,9 +49,7 @@ Never store trade state directly. Instead, derive state by replaying the witness
 
 ---
 
-## ADR-003: Append-Only Witness Chain
-
-**Status:** Accepted
+## Append-Only Witness Chain
 
 **Context:**
 Traditional systems allow modification or deletion of workflow actions. While this provides flexibility, it compromises audit integrity and makes it difficult to answer "what happened and when?"
@@ -76,9 +70,7 @@ Implement witness chain as strictly append-only. Witnesses can never be modified
 
 ---
 
-## ADR-004: CBOR Serialization
-
-**Status:** Accepted
+## CBOR Serialization
 
 **Context:**
 Need efficient, deterministic serialization for content addressing. Options considered:
@@ -103,9 +95,7 @@ Use CBOR (Concise Binary Object Representation) for all serialization needs.
 
 ---
 
-## ADR-005: Sled Embedded Database
-
-**Status:** Accepted
+## Sled Embedded Database
 
 **Context:**
 Need persistent storage without complex database setup. Options considered:
@@ -131,9 +121,7 @@ Use Sled as the embedded database for content-addressable storage.
 
 ---
 
-## ADR-006: Bech32 Encoded UUIDs
-
-**Status:** Accepted
+## Bech32 Encoded UUIDs
 
 **Context:**
 Need unique identifiers for trades, users, and other entities. Requirements:
@@ -158,9 +146,7 @@ Use UUID v7 (time-ordered) encoded with Bech32 format with human-readable prefix
 
 ---
 
-## ADR-007: Pure Functional Core Pattern
-
-**Status:** Accepted
+## Pure Functional Core Pattern
 
 **Context:**
 Service layer typically mixes business logic with I/O operations, making testing difficult and reasoning about correctness complex.
