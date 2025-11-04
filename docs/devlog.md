@@ -1,5 +1,7 @@
 # Devlog
 
+*Notes I made to help me understand the problem.*
+
 Build a trade approval system. Users submit potiential trade details for approval and go through a structured workflow of validation logic before execution or cancelled. We need to streamline the processess and standardise the approval process for different finacial instruments such as 'forward contacts'
 
 The following actions are defined:

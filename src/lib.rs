@@ -1,4 +1,6 @@
 //! # Trade Approval System
+//! ![rustc-image](https://img.shields.io/badge/rustc-1.89-blue?logo=Rust)
+//! ![license-image](https://img.shields.io/badge/license-MIT-green?logo=opensourceinitiative)
 //!
 //! A functional, content-addressable trade approval system for managing financial transactions
 //! through an immutable witness chain, inspired by approachs to content addressable storage.
@@ -308,8 +310,12 @@
 //!
 //! - **Testability**: State derivation logic is pure functions with no I/O dependencies,
 //!   enabling comprehensive unit testing without mocking databases or networks.
-
-#![allow(unused_imports)]
+//!
+//!## License
+//!
+//! This crate is licensed under:
+//!
+//!  * [MIT license](https://opensource.org/licenses/MIT)
 
 pub mod context;
 pub mod error;

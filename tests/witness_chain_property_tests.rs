@@ -93,7 +93,6 @@ fn valid_workflow_strategy(trade_id: String) -> impl Strategy<Value = Vec<Witnes
     })
 }
 
-// PROPERTY TESTS
 proptest! {
     /// Property: current_state() is idempotent - calling it multiple times returns the same result
     ///

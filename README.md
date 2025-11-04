@@ -13,11 +13,22 @@ This system manages the lifecycle of forward contract trades through an approval
 - **Re-approval workflow** - updates invalidate previous approvals
 - **Pure functional core** - state derivation logic has zero I/O dependencies
 
+## LLM-Use
+Claude was used to assist in the making of this library without it I would not have been able to learn and achieve the success in this prototype in the way that I have. for more information about how I used claude see [LLM-use.md](./docs/LLM-use.md)
+
 ## Quick Start
 
 ### Prerequisites
 
 **Using Nix + devenv (recommended):**
+
+**NOTE:** First time builds are subject to long build times, please make sure you have binary caches enabled to improve build time speeds.
+
+```
+substituters = https://devenv.cachix.org https://cache.iog.io https://nix-community.cachix.org
+
+trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+```
 
 Nix provides deterministic builds and reproducible environments. It ensures:
 - **Reproducibility** - everyone on the team uses identical tool versions
@@ -26,6 +37,12 @@ Nix provides deterministic builds and reproducible environments. It ensures:
 - **Cross-platform consistency** - same environment on macOS, Linux, and CI/CD
 
 Without Nix, environments remain heterogeneous, leading to "works on my machine" issues.
+
+## Devenv
+A tool that wraps around Nix making it more friendly to use for new commers looking to exlpore the nix ecosystem. It's reccommended that those who dont know nix start with this first.
+
+## Direnv
+direnv provides a nice extention to your shell allowed envrionments to be loaded and unloaded depending on the current directory. Use this to allow the shell to enter the nix environment in the background.
 
 Install these tools:
 - [Nix installer](https://determinate.systems/nix-installer/)
