@@ -20,17 +20,11 @@ Claude was used to assist in the making of this library without it I would not h
 
 ### Prerequisites
 
-**Using Nix + devenv (recommended):**
+You have two options for setting up your development environment:
 
-**NOTE:** First time builds are subject to long build times, please make sure you have binary caches enabled to improve build time speeds.
+#### Option 1: Nix + devenv (Recommended)
 
-```
-substituters = https://devenv.cachix.org https://cache.iog.io https://nix-community.cachix.org
-
-trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
-```
-
-Nix provides deterministic builds and reproducible environments. It ensures:
+Nix provides deterministic builds and reproducible environments, ensuring:
 - **Reproducibility** - everyone on the team uses identical tool versions
 - **Isolation** - project dependencies don't conflict with your system
 - **Declarative setup** - environment defined in code, not manual installation steps
@@ -38,30 +32,89 @@ Nix provides deterministic builds and reproducible environments. It ensures:
 
 Without Nix, environments remain heterogeneous, leading to "works on my machine" issues.
 
-## Devenv
-A tool that wraps around Nix making it more friendly to use for new commers looking to exlpore the nix ecosystem. It's reccommended that those who dont know nix start with this first.
+**What is devenv?**
+A tool that wraps Nix, making it more friendly for newcomers exploring the Nix ecosystem. If you're new to Nix, start here.
 
-## Direnv
-direnv provides a nice extention to your shell allowed envrionments to be loaded and unloaded depending on the current directory. Use this to allow the shell to enter the nix environment in the background.
+**What is direnv?**
+A shell extension that automatically loads and unloads environments based on your current directory. Use this to enter the Nix environment seamlessly in the background.
 
-Install these tools:
-- [Nix installer](https://determinate.systems/nix-installer/)
-- [devenv](https://devenv.sh/getting-started/)
-- [direnv](https://direnv.net/)
+**Installation:**
 
-**Or install Rust directly:**
-- [rustup](https://rustup.rs/)
+1. Install the Determinate Nix Installer:
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+   ```
 
-### Build & Test
+2. Configure binary caches (improves build speeds):
+
+   Add to `/etc/nix/nix.custom.conf`:
+   ```
+   substituters = https://devenv.cachix.org https://cache.iog.io https://nix-community.cachix.org
+   trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+   ```
+
+3. Install devenv for new comers:
+   ```bash
+    nix profile install nixpkgs#devenv
+   ```
+
+4. (Optional) Install direnv for automatic environment activation:
+   ```bash
+   # macOS
+   brew install direnv
+
+   # Or via Nix
+   nix profile install nixpkgs#direnv
+   ```
+
+   Then add to your shell config (`~/.bashrc`, `~/.zshrc`, etc.):
+   ```bash
+   eval "$(direnv hook bash)"  # or zsh, fish, etc.
+   ```
+
+5. Navigate to the project and enter the environment:
+   ```bash
+   cd validus-2025-trade-approval-system
+
+   # With direnv (automatic)
+   direnv allow
+
+   # Or manually
+   devenv shell
+   ```
+
+**Note:** First-time builds may take longer. Binary caches significantly improve this.
+
+**Helpful Resources:**
+- [Nix Installer](https://determinate.systems/nix-installer/)
+- [devenv Getting Started](https://devenv.sh/getting-started/)
+- [direnv Documentation](https://direnv.net/)
+
+#### Option 2: Install Rust Directly
+
+If you prefer not to use Nix, install Rust toolchain directly:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+See [rustup.rs](https://rustup.rs/) for more details.
+
+### Building and Testing
+
+Once your environment is set up:
 
 ```bash
 # Build the project
 cargo build
 
-# Run tests
-cargo test
+# Run all tests
+cargo test`
 
-# Generate documentation
+# Run tests with output
+cargo test -- --nocapture
+
+# Generate and open documentation
 cargo doc --open
 ```
 
