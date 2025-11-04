@@ -13,8 +13,8 @@ This system manages the lifecycle of forward contract trades through an approval
 - **Re-approval workflow** - updates invalidate previous approvals
 - **Pure functional core** - state derivation logic has zero I/O dependencies
 
-## LLM-Use
-Claude was used to assist in the making of this library without it I would not have been able to learn and achieve the success in this prototype in the way that I have. for more information about how I used claude see [LLM-use.md](./docs/LLM-use.md)
+## LLM Use
+Claude was used to assist in the making of this library; without it, I would not have been able to learn and achieve the success in this prototype in the way that I have. For more information about how I used Claude, see [LLM-use.md](./docs/LLM-use.md).
 
 ## Quick Start
 
@@ -53,7 +53,7 @@ A shell extension that automatically loads and unloads environments based on you
    trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
    ```
 
-3. Install devenv for new comers:
+3. Install devenv for newcomers:
    ```bash
     nix profile install nixpkgs#devenv
    ```
@@ -189,7 +189,7 @@ println!("Current state: {:?}", approved_ctx.current_state()); // Approved
 
 ## Documentation
 
-**For more details documentation, descions and complete examples, please refer to the Rust documentation:**
+**For more detailed documentation, decisions and complete examples, please refer to the Rust documentation:**
 
 ```bash
 cargo doc --open

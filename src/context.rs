@@ -18,7 +18,7 @@ pub enum TradeState {
 
 #[derive(Debug, minicbor::Encode, minicbor::Decode)]
 pub struct TradeContext {
-    /// uses a bech2_encoded uuid string. this string is also referenced in the witness
+    /// uses a bech32-encoded UUID string. This string is also referenced in the witness
     #[n(0)]
     pub trade_id: String,
     #[n(1)]
@@ -29,19 +29,19 @@ pub struct TradeContext {
 pub struct Witness {
     #[n(0)]
     pub trade_id: String,
-    /// a unique string that is a reference to the trade
+    /// A unique string that is a reference to the trade
     #[n(1)]
     pub user_id: String,
     #[n(2)]
     pub user_timestamp: TimeStamp<Utc>,
-    /// issued when the witness set is created
+    /// Issued when the witness set is created
     #[n(3)]
     pub witness_type: WitnessType,
 }
 
 #[derive(Debug, PartialEq, Eq, minicbor::Encode, minicbor::Decode, Clone)]
 pub enum WitnessType {
-    /// if we pass validaion checks on build we are in the pending approval stage
+    /// If we pass validation checks on build, we are in the pending approval stage
     #[n(0)]
     Submit {
         #[n(0)]
@@ -100,7 +100,7 @@ impl Witness {
             witness_type,
         }
     }
-    /// encode to cbor then return the hassh and the encoded contents.
+    /// Encode to CBOR then return the hash and the encoded contents.
     pub fn serialize_with_hash(&self) -> anyhow::Result<(String, Vec<u8>)> {
         let cbor = minicbor::to_vec(self)?;
         let id = self.trade_id.clone();
@@ -116,7 +116,7 @@ impl TradeContext {
             witness_set: vec![],
         }
     }
-    // generate a uuid outside this types context
+    // Generate a UUID outside this type's context
     pub fn new_with(trade_id: String) -> Self {
         Self {
             trade_id,

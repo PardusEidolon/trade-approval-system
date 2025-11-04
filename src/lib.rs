@@ -3,7 +3,7 @@
 //! ![license-image](https://img.shields.io/badge/license-MIT-green?logo=opensourceinitiative)
 //!
 //! A functional, content-addressable trade approval system for managing financial transactions
-//! through an immutable witness chain, inspired by approachs to content addressable storage.
+//! through an immutable witness chain, inspired by approaches to content-addressable storage.
 //!
 //! ## Overview
 //!
@@ -11,7 +11,7 @@
 //! forward contracts. Rather than mutating records in a traditional database, the system treats
 //! all data as immutable, content-addressable objects - similar to how Git stores commits and
 //! trees. Trade state is derived by replaying an append-only witness chain, ensuring complete
-//! auditability and eliminating state synchronization bugs.
+//! auditability and eliminating state synchronisation bugs.
 //!
 //! ### Functional Architecture
 //!
@@ -23,7 +23,7 @@
 //! - **Immutable**: Once created, they never change
 //! - **Content-addressed**: Identified by SHA256 hash of their CBOR-encoded contents
 //! - **Self-describing**: Contains all information needed for verification
-//! - **Persistent**: Stored in a key-value database sled
+//! - **Persistent**: Stored in a key-value database (Sled)
 //!
 //! #### State Derivation Layer
 //!
@@ -48,7 +48,7 @@
 //!   facts. Trades are never mutated; instead, new witnesses are appended to their history.
 //! - **Derived State**: Trade state (e.g., `PendingApproval`, `Approved`) is never stored
 //!   directly. Instead, it's an ephemeral value calculated by replaying the immutable
-//!   witness history, eliminating state-synchronization bugs.
+//!   witness history, eliminating state-synchronisation bugs.
 //! - **Pure Validation Logic**: All business and workflow rules are concentrated in pure,
 //!   stateless functions that can be tested exhaustively without external dependencies.
 //!
@@ -91,7 +91,7 @@
 //!
 //! ## Validation Rules
 //!
-//! All trades must satisfy the following temporal constraint before Submition:
+//! All trades must satisfy the following temporal constraint before submission:
 //!
 //! ```text
 //! trade_date <= value_date <= delivery_date
@@ -136,7 +136,7 @@
 //! ## CBOR Encoding
 //!
 //! The library uses CBOR (Concise Binary Object Representation) for efficient
-//! serialization. This provides:
+//! serialisation. This provides:
 //!
 //! - **Compact binary encoding** for network transmission and storage
 //! - **Hash-safe encoding** for content-addressable storage
@@ -149,7 +149,7 @@
 //!
 //! ### Basic Approval Flow
 //!
-//! Note: IDs are made to be human readable for the purposes of this example
+//! Note: IDs are made to be human-readable for the purposes of this example
 //!
 //! ```rust,ignore
 //! use trade_approval::service::TradeService;
@@ -292,7 +292,7 @@
 //!   This eliminates entire classes of bugs related to concurrent modifications and state races.
 //!
 //! - **Derived State**: Trade state is computed from the witness chain, not stored. This means
-//!   the state machine logic is centralized in `current_state()` rather than scattered across
+//!   the state machine logic is centralised in `current_state()` rather than scattered across
 //!   mutations.
 //!
 //! - **Append-Only History**: Witnesses are only added, never changed or deleted.

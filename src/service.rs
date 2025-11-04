@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 pub struct TradeService {
     instance: Arc<sled::Db>,
-    // in future we could add a config for approval contraints
+    // In future we could add a config for approval constraints
 }
 
 impl TradeService {
@@ -28,7 +28,7 @@ impl TradeService {
         approver_id: String,
         user_id: String,
     ) -> anyhow::Result<TradeContext> {
-        // Validate and serialize trade details
+        // Validate and serialise trade details
         let (details_hash, details_cbor) = trade_details.validate_and_finalise()?;
 
         // Create new trade context
@@ -137,7 +137,7 @@ impl TradeService {
             }
         }
 
-        // Validate and serialize new trade details
+        // Validate and serialise new trade details
         let (details_hash, details_cbor) = trade_details.validate_and_finalise()?;
 
         // Create Update witness

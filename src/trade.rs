@@ -22,8 +22,8 @@ pub enum Direction {
     Sell,
 }
 
-// also used for constructing drafts
-// key is the hash of this struct encoded into cbor
+// Also used for constructing drafts
+// Key is the hash of this struct encoded into CBOR
 #[derive(minicbor::Encode, minicbor::Decode, Debug, Default, Eq, PartialEq)]
 pub struct TradeDetails {
     // No ID field, as the ID *is* the hash of this struct
