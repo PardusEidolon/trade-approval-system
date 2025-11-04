@@ -5,9 +5,16 @@ use sled::open;
 use std::sync::Arc;
 use trade_approval::{context, service::TradeService, trade, utils};
 
+use tempfile::tempdir; // Use for test db cleanup.
+
 #[test]
 fn submit_and_approve_trade() -> anyhow::Result<()> {
-    let db = open("./db/ledger.db")?;
+    // Sled uses file-based locking to prevent concurrent access, so only one test
+    // can hold the lock at a time. As is good practice in testing create separate
+    // databases for each test. The db is created on temp for simplified cleanup.
+    let temp_dir = tempdir()?;
+    let db_path = temp_dir.path().join("test_submit_and_approve.db");
+    let db = open(db_path)?;
     let db = Arc::new(db);
 
     // reset the db for each test run
@@ -55,7 +62,12 @@ fn submit_and_approve_trade() -> anyhow::Result<()> {
 
 #[test]
 fn update_trade() -> anyhow::Result<()> {
-    let db = open("./db/ledger.db")?;
+    // Sled uses file-based locking to prevent concurrent access, so only one test
+    // can hold the lock at a time. As is good practice in testing create separate
+    // databases for each test. The db is created on temp for simplified cleanup.
+    let temp_dir = tempdir()?;
+    let db_path = temp_dir.path().join("test_update_trade.db");
+    let db = open(db_path)?;
     let db = Arc::new(db);
 
     db.clear()?;
@@ -121,7 +133,12 @@ fn update_trade() -> anyhow::Result<()> {
 
 #[test]
 fn submit_execute_and_book() -> anyhow::Result<()> {
-    let db = open("./db/ledger.db")?;
+    // Sled uses file-based locking to prevent concurrent access, so only one test
+    // can hold the lock at a time. As is good practice in testing create separate
+    // databases for each test. The db is created on temp for simplified cleanup.
+    let temp_dir = tempdir()?;
+    let db_path = temp_dir.path().join("submit_execute_and_book.db");
+    let db = open(db_path)?;
     let db = Arc::new(db);
 
     // reset the db for each test run

@@ -161,43 +161,80 @@ impl TradeContext {
             return TradeState::Draft;
         }
 
-        // Walk backwards to find the latest relevant state
+        // Check for terminal states - first one encountered wins. Both Book and Cancel
+        // are equally terminal - whichever comes first in the chain determines the final
+        // state. Once in a terminal state, it cannot be changed.
+
+        let mut first_terminal: Option<TradeState> = None;
+
+        for witness in self.witness_set.iter() {
+            match &witness.witness_type {
+                WitnessType::Book { .. } => {
+                    if first_terminal.is_none() {
+                        first_terminal = Some(TradeState::Booked);
+                    }
+                }
+                WitnessType::Cancel => {
+                    if first_terminal.is_none() {
+                        first_terminal = Some(TradeState::Cancelled);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // If we found a terminal state, return it (first one wins)
+        if let Some(terminal) = first_terminal {
+            return terminal;
+        }
+
+        // No terminal states found, walk backwards for normal state derivation
         let mut approved = false;
 
         for witness in self.witness_set.iter().rev() {
             match &witness.witness_type {
+                WitnessType::Book { .. } | WitnessType::Cancel => {
+                    // Should have been caught above
+                    unreachable!("Terminal states should have been caught earlier");
+                }
+                WitnessType::SendToExecute => {
+                    // SendToExecute can only happen from an approved state.
+                    // If we see this, we must have been approved prior.
+                    return TradeState::SentToExecute;
+                }
                 WitnessType::Submit { .. } => {
-                    // if weve already seen approved after submit then return approved
+                    // This is an "approval required" point.
+                    // If we've seen an approval *after* this (walking rev), we're Approved.
                     if approved {
                         return TradeState::Approved;
                     } else {
+                        // No approval seen since this submit.
                         return TradeState::PendingApproval;
                     }
                 }
                 WitnessType::Update { .. } => {
-                    // Update invalidates previous approval
-                    return TradeState::PendingApproval;
+                    // This is also an "approval required" point, just like Submit.
+                    // If we've seen an approval *after* this (walking rev), we're Approved.
+                    if approved {
+                        return TradeState::Approved;
+                    } else {
+                        // No approval seen since this update.
+                        return TradeState::PendingApproval;
+                    }
                 }
                 WitnessType::Approve => {
                     approved = true;
-                    // Keep checking - might be an Update after this
-                }
-                WitnessType::Cancel => {
-                    return TradeState::Cancelled;
-                }
-                WitnessType::SendToExecute => {
-                    return TradeState::SentToExecute;
-                }
-                WitnessType::Book { .. } => {
-                    return TradeState::Booked;
+                    // Keep checking - might be an Update/Submit before this
                 }
             }
         }
 
-        // If we get here and saw Approve, and no Submit/Update after
+        // If we get here and saw Approve, and no Submit/Update before it
         if approved {
             TradeState::Approved
         } else {
+            // This case would be e.g. only an Approve witness, which is invalid
+            // but we default to Draft.
             TradeState::Draft
         }
     }

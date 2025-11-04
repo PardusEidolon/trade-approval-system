@@ -111,10 +111,31 @@ impl TradeService {
         &self,
         trade_id: String,
         trade_details: TradeDetails,
-        user_addr: String,
+        user_id: String,
     ) -> anyhow::Result<TradeContext> {
         // Load existing trade context
         let mut trade_context = self.load_trade_context(&trade_id)?;
+
+        // Verify trade is in a state that allows updates Updates should only
+        // be possible before execution/booking
+        match trade_context.current_state() {
+            TradeState::Booked => {
+                return Err(anyhow::anyhow!(
+                    "Cannot update trade it has already been booked"
+                ));
+            }
+            TradeState::Cancelled => {
+                return Err(anyhow::anyhow!("Cannot update a cancelled trade"));
+            }
+            TradeState::SentToExecute => {
+                return Err(anyhow::anyhow!(
+                    "Cannot update a trade that has been sent to execute"
+                ));
+            }
+            _ => {
+                // Draft, PendingApproval, Approved are all valid states for updates
+            }
+        }
 
         // Validate and serialize new trade details
         let (details_hash, details_cbor) = trade_details.validate_and_finalise()?;
@@ -122,7 +143,7 @@ impl TradeService {
         // Create Update witness
         let witness = Witness::new(
             trade_id.clone(),
-            user_addr,
+            user_id,
             TimeStamp::new(),
             WitnessType::Update {
                 details_hash: details_hash.clone(),
@@ -145,18 +166,22 @@ impl TradeService {
     }
 
     /// Cancel a trade
-    pub fn cancel_trade(
-        &self,
-        trade_id: String,
-        user_addr: String,
-    ) -> anyhow::Result<TradeContext> {
+    pub fn cancel_trade(&self, trade_id: String, user_id: String) -> anyhow::Result<TradeContext> {
         // Load existing trade context
         let mut trade_context = self.load_trade_context(&trade_id)?;
+
+        // Verify trade is not already booked business rules: Cancel can
+        // occur at any point before Booked
+        if matches!(trade_context.current_state(), TradeState::Booked) {
+            return Err(anyhow::anyhow!(
+                "Cannot cancel a trade that has already been booked"
+            ));
+        }
 
         // Create Cancel witness
         let witness = Witness::new(
             trade_id.clone(),
-            user_addr,
+            user_id,
             TimeStamp::new(),
             WitnessType::Cancel,
         );
@@ -171,11 +196,7 @@ impl TradeService {
     }
 
     /// Send approved trade to execution
-    pub fn execute_trade(
-        &self,
-        trade_id: String,
-        user_addr: String,
-    ) -> anyhow::Result<TradeContext> {
+    pub fn execute_trade(&self, trade_id: String, user_id: String) -> anyhow::Result<TradeContext> {
         // Load existing trade context
         let mut trade_context = self.load_trade_context(&trade_id)?;
 
@@ -190,7 +211,7 @@ impl TradeService {
         // Create SendToExecute witness
         let witness = Witness::new(
             trade_id.clone(),
-            user_addr,
+            user_id,
             TimeStamp::new(),
             WitnessType::SendToExecute,
         );
@@ -208,7 +229,7 @@ impl TradeService {
     pub fn book_trade(
         &self,
         trade_id: String,
-        user_addr: String,
+        user_id: String,
         strike: u64,
     ) -> anyhow::Result<TradeContext> {
         // Load existing trade context
@@ -217,7 +238,7 @@ impl TradeService {
         // Create Book witness
         let witness = Witness::new(
             trade_id.clone(),
-            user_addr,
+            user_id,
             TimeStamp::new(),
             WitnessType::Book { strike },
         );

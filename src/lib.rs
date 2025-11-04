@@ -316,8 +316,3 @@ pub mod error;
 pub mod service;
 pub mod trade;
 pub mod utils;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}
