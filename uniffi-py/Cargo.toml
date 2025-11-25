@@ -1,0 +1,17 @@
+[package]
+name = "uniffi-py"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+bench = false
+nane = "ffi-py"
+
+[dependencies]
+sled = "0.34.7"
+trade-approval = {path = "../trade-approval"}
+uniffi = { version = "0.30.0", features = ["cli"] }
+
+[build-dependencies]
+uniffi = { version = "0.30.0", features = ["build"] }

@@ -6,6 +6,10 @@ devenv.local.yaml
 
 db/*
 docs/*
+out/*
+python/src/__pycache__
+python/src/*.dylib
+python/src/uniffi_py.py
 !docs/devlog.md
 !docs/ADR.md
 !docs/LLM-use.md
